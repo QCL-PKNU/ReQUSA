@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="QPU_tb_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="QPU_tb" />
+            <top_module name="glbl" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="869780000fs"></ZoomStartTime>
+      <ZoomEndTime time="1586174772fs"></ZoomEndTime>
+      <Cursor1Time time="986135000fs"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="401"></NameColumnWidth>
+      <ValueColumnWidth column_width="208"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="9" />
+   <wvobject fp_name="group3646" type="group">
+      <obj_property name="label">QPU in (rs buffer init.)</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuin_en" type="logic">
+         <obj_property name="ElementShortName">rs_qpuin_en</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuin_en</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuin_data" type="array">
+         <obj_property name="ElementShortName">rs_qpuin_data[25:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuin_data[25:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuin_clr" type="logic">
+         <obj_property name="ElementShortName">rs_qpuin_clr</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuin_clr</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuin_addr" type="array">
+         <obj_property name="ElementShortName">rs_qpuin_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuin_addr[9:0]</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group2857" type="group">
+      <obj_property name="label">Gate load on xbar</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/QPU_tb/qg_enable" type="logic">
+         <obj_property name="ElementShortName">qg_enable</obj_property>
+         <obj_property name="ObjectShortName">qg_enable</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/qg_info_data" type="array">
+         <obj_property name="ElementShortName">qg_info_data[23:0]</obj_property>
+         <obj_property name="ObjectShortName">qg_info_data[23:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/xbar_row_wen" type="logic">
+         <obj_property name="ElementShortName">xbar_row_wen</obj_property>
+         <obj_property name="ObjectShortName">xbar_row_wen</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/xbar_row_addr" type="array">
+         <obj_property name="ElementShortName">xbar_row_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">xbar_row_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/qg_real_data" type="array">
+         <obj_property name="ElementShortName">qg_real_data[31:0]</obj_property>
+         <obj_property name="ObjectShortName">qg_real_data[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/qg_imag_data" type="array">
+         <obj_property name="ElementShortName">qg_imag_data[31:0]</obj_property>
+         <obj_property name="ObjectShortName">qg_imag_data[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/gat_ctrl_state" type="logic">
+         <obj_property name="ElementShortName">gat_ctrl_state</obj_property>
+         <obj_property name="ObjectShortName">gat_ctrl_state</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group2858" type="group">
+      <obj_property name="label">RSV reorder</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/QPU_tb/qpu/rs_buffer_size" type="array">
+         <obj_property name="ElementShortName">rs_buffer_size[9:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_buffer_size[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/b_single_gate" type="logic">
+         <obj_property name="ElementShortName">b_single_gate</obj_property>
+         <obj_property name="ObjectShortName">b_single_gate</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/reorder_unit/b_controlled" type="logic">
+         <obj_property name="ElementShortName">b_controlled</obj_property>
+         <obj_property name="ObjectShortName">b_controlled</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_buffer_cam" type="logic">
+         <obj_property name="ElementShortName">rs_buffer_cam</obj_property>
+         <obj_property name="ObjectShortName">rs_buffer_cam</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_buffer_ren" type="logic">
+         <obj_property name="ElementShortName">rs_buffer_ren</obj_property>
+         <obj_property name="ObjectShortName">rs_buffer_ren</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_buffer_addr" type="array">
+         <obj_property name="ElementShortName">rs_buffer_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_buffer_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_buffer_data" type="array">
+         <obj_property name="ElementShortName">rs_buffer_data[25:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_buffer_data[25:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/reorder_unit/b_lower_state" type="logic">
+         <obj_property name="ElementShortName">b_lower_state</obj_property>
+         <obj_property name="ObjectShortName">b_lower_state</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/qb_targ_addr" type="array">
+         <obj_property name="ElementShortName">qb_targ_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">qb_targ_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/qb_ctrl_addr" type="array">
+         <obj_property name="ElementShortName">qb_ctrl_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">qb_ctrl_addr[9:0]</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group2859" type="group">
+      <obj_property name="label">RSV load on xbar</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/QPU_tb/rs_enable" type="logic">
+         <obj_property name="ElementShortName">rs_enable</obj_property>
+         <obj_property name="ObjectShortName">rs_enable</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_reorder_end" type="logic">
+         <obj_property name="ElementShortName">rs_reorder_end</obj_property>
+         <obj_property name="ObjectShortName">rs_reorder_end</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/b_rsv_loaded" type="logic">
+         <obj_property name="ElementShortName">b_rsv_loaded</obj_property>
+         <obj_property name="ObjectShortName">b_rsv_loaded</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_reorder_busy" type="logic">
+         <obj_property name="ElementShortName">rs_reorder_busy</obj_property>
+         <obj_property name="ObjectShortName">rs_reorder_busy</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_reorder_flag" type="logic">
+         <obj_property name="ElementShortName">rs_reorder_flag</obj_property>
+         <obj_property name="ObjectShortName">rs_reorder_flag</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_reorder_data" type="array">
+         <obj_property name="ElementShortName">rs_reorder_data[15:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_reorder_data[15:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_reorder_addr" type="array">
+         <obj_property name="ElementShortName">rs_reorder_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_reorder_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/xbar_rsv_addr" type="array">
+         <obj_property name="ElementShortName">xbar_rsv_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">xbar_rsv_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rsv_ctrl_state" type="array">
+         <obj_property name="ElementShortName">rsv_ctrl_state[1:0]</obj_property>
+         <obj_property name="ObjectShortName">rsv_ctrl_state[1:0]</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group3532" type="group">
+      <obj_property name="label">VMM on xbar</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/QPU_tb/qpu/b_vmm_finish" type="logic">
+         <obj_property name="ElementShortName">b_vmm_finish</obj_property>
+         <obj_property name="ObjectShortName">b_vmm_finish</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/xbar_vmm_addr" type="array">
+         <obj_property name="ElementShortName">xbar_vmm_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">xbar_vmm_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/xbar_out_data" type="array">
+         <obj_property name="ElementShortName">xbar_out_data[15:0]</obj_property>
+         <obj_property name="ObjectShortName">xbar_out_data[15:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/xbar_out_addr" type="array">
+         <obj_property name="ElementShortName">xbar_out_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">xbar_out_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/xbar_out_ren" type="logic">
+         <obj_property name="ElementShortName">xbar_out_ren</obj_property>
+         <obj_property name="ObjectShortName">xbar_out_ren</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group3588" type="group">
+      <obj_property name="label">QPU out (concat out)</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuout_done" type="logic">
+         <obj_property name="ElementShortName">rs_qpuout_done</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuout_done</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuout_en" type="logic">
+         <obj_property name="ElementShortName">rs_qpuout_en</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuout_en</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuout_data" type="array">
+         <obj_property name="ElementShortName">rs_qpuout_data[15:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuout_data[15:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/rs_qpuout_addr" type="array">
+         <obj_property name="ElementShortName">rs_qpuout_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_qpuout_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/out_ctrl_state" type="logic">
+         <obj_property name="ElementShortName">out_ctrl_state</obj_property>
+         <obj_property name="ObjectShortName">out_ctrl_state</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group3647" type="group">
+      <obj_property name="label">Concat buffer</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/QPU_tb/qpu/out_buffer/rs_rouout_wen" type="logic">
+         <obj_property name="ElementShortName">rs_rouout_wen</obj_property>
+         <obj_property name="ObjectShortName">rs_rouout_wen</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/out_buffer/rs_vmuout_data" type="array">
+         <obj_property name="ElementShortName">rs_vmuout_data[15:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_vmuout_data[15:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/out_buffer/rs_rouout_data" type="array">
+         <obj_property name="ElementShortName">rs_rouout_data[15:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_rouout_data[15:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/out_buffer/rs_rouout_addr" type="array">
+         <obj_property name="ElementShortName">rs_rouout_addr[9:0]</obj_property>
+         <obj_property name="ObjectShortName">rs_rouout_addr[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/QPU_tb/qpu/out_buffer/rou_flag_bits" type="array">
+         <obj_property name="ElementShortName">rou_flag_bits[7:0]</obj_property>
+         <obj_property name="ObjectShortName">rou_flag_bits[7:0]</obj_property>
+         <obj_property name="Radix">BINARYRADIX</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="/QPU_tb/qpu/clock" type="logic">
+      <obj_property name="ElementShortName">clock</obj_property>
+      <obj_property name="ObjectShortName">clock</obj_property>
+   </wvobject>
+   <wvobject fp_name="/QPU_tb/qpu/nreset" type="logic">
+      <obj_property name="ElementShortName">nreset</obj_property>
+      <obj_property name="ObjectShortName">nreset</obj_property>
+   </wvobject>
+</wave_config>
