@@ -218,7 +218,11 @@ end
 
 // to check whether the addressed rs has been already reordered
 always @(posedge clock or negedge nreset) begin
-    if(!nreset || enable) begin
+    if(!nreset) begin
+        // reset all the valid bits 
+        rs_valid_bits <= {`RS_BUFF_SIZE{1'b0}};
+    end
+    else if(enable) begin
         // reset all the valid bits 
         rs_valid_bits <= {`RS_BUFF_SIZE{1'b0}};
     end

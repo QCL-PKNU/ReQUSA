@@ -70,7 +70,11 @@ end
 reg [`RS_BUFF_SIZE-1:0] rs_valid_bits;
 
 always @(posedge clock or negedge nreset) begin
-    if(!nreset || rs_buffer_clr) begin
+    if(!nreset) begin
+        // reset all the valid bits of the buffer
+        rs_valid_bits <= {`RS_BUFF_SIZE{1'b0}};
+    end
+    else if(rs_buffer_clr) begin
         // reset all the valid bits of the buffer
         rs_valid_bits <= {`RS_BUFF_SIZE{1'b0}};
     end

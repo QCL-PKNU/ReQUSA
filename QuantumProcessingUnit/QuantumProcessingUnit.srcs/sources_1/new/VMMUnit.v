@@ -130,7 +130,7 @@ end
 
 // copy the realized states to the rsv buffer
 always @(posedge clock or negedge nreset) begin
-    if(!nreset || xbar_vmm_men) begin
+    if(!nreset) begin
         // clear the rsv buffer
         for(i = 0; i < `XB_ELEM_WIDTH; i = i + 1) begin
             xbar_rsv_real_buffer[i] <= {`RS_AMPL_WIDTH{1'b0}};
