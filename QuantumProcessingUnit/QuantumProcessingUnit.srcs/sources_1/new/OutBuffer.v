@@ -24,13 +24,13 @@
 module OutBuffer(
     // for QPU output
     output reg [`RS_ELEM_WIDTH-1:0] rs_concat_data, // concatenated output
-    input wire [`RS_ADDR_WIDTH-1:0] rs_concat_addr,
+    input wire [`XB_ADDR_WIDTH-1:0] rs_concat_addr,
     input wire rs_concat_ren,
     // vmm unit output 
     input wire [`RS_ELEM_WIDTH-1:0] rs_vmuout_data, // ordered rs input after vmm from VMMUnit
     // reorder unit output
     input wire [`RS_ELEM_WIDTH-1:0] rs_rouout_data, // non-reordered rs input from ReorderUnit
-    input wire [`RS_ADDR_WIDTH-1:0] rs_rouout_addr,
+    input wire [`XB_ADDR_WIDTH-1:0] rs_rouout_addr,
     input wire rs_reorder_flag,
     input wire rs_rouout_wen,
 

@@ -24,7 +24,7 @@
 module VMMUnit(
     // vmm output
     output reg [`RS_ELEM_WIDTH-1:0] rs_output_data,
-    input wire [`RS_ADDR_WIDTH-1:0] rs_output_addr,
+    input wire [`XB_ADDR_WIDTH-1:0] rs_output_addr,
     input rs_output_ren,
     // gate decoder input
     input wire [`QG_AMPL_WIDTH-1:0] qg_real_data,   
