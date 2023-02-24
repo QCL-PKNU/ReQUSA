@@ -25,8 +25,7 @@ module QPU_tb;
 
 // for qpu output
 wire [`RS_ELEM_WIDTH-1:0] rs_qpuout_data;
-wire [`RS_ADDR_WIDTH-1:0] rs_qpuout_addr;
-wire rs_qpuout_done;
+wire [`XB_ADDR_WIDTH-1:0] rs_qpuout_addr;
 wire rs_qpuout_en;
 // for the gate decoder
 reg  [`QG_INFO_WIDTH-1:0] qg_info_data;
@@ -127,7 +126,6 @@ end
 QPU qpu(
     .rs_qpuout_data(rs_qpuout_data),
     .rs_qpuout_addr(rs_qpuout_addr),
-    .rs_qpuout_done(rs_qpuout_done),
     .rs_qpuout_en(rs_qpuout_en),  
     .qg_info_data(qg_info_data),
     .rs_qpuin_data(rs_qpuin_data),

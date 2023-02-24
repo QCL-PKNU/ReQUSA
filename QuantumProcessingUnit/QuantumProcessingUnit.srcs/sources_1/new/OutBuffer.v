@@ -27,7 +27,8 @@ module OutBuffer(
     input wire [`XB_ADDR_WIDTH-1:0] rs_concat_addr,
     input wire rs_concat_ren,
     // vmm unit output 
-    input wire [`RS_ELEM_WIDTH-1:0] rs_vmuout_data, // ordered rs input after vmm from VMMUnit
+    input wire [`XB_DBUS_WIDTH-1:0] rs_vmuout_data, // vmm output from VMMUnit
+    input wire rs_vmuout_wen,
     // reorder unit output
     input wire [`RS_ELEM_WIDTH-1:0] rs_rouout_data, // non-reordered rs input from ReorderUnit
     input wire [`XB_ADDR_WIDTH-1:0] rs_rouout_addr,
@@ -76,13 +77,36 @@ always @(posedge clock or negedge nreset) begin
 end
 
 //////////////////////////////////////////////////////////////////////////////////
+// Realized State Input (Reordered) 
+//////////////////////////////////////////////////////////////////////////////////
+
+// reordered rs buffer (after vmm)
+reg [`RS_ELEM_WIDTH-1:0] vmm_buffer[0:`XB_ELEM_WIDTH-1];
+
+// to keep the non-reordered rs outputs from the reorder unit
+always @(posedge clock or negedge nreset) begin
+    if(!nreset) begin
+        // initialize the vmm buffer
+        for(i = 0; i < `XB_ELEM_WIDTH; i = i + 1) begin
+            vmm_buffer[i] <= {`RS_ELEM_WIDTH{1'b0}};
+        end
+    end 
+    else if(rs_vmuout_wen) begin
+        // copy the vmm output to the buffer at the same time 
+        for(i = 0; i < `XB_ELEM_WIDTH; i = i + 1) begin
+            vmm_buffer[i] <= (rs_vmuout_data >> (i * `RS_ELEM_WIDTH)) & {`RS_ELEM_WIDTH{1'b1}};
+        end
+    end
+end
+
+//////////////////////////////////////////////////////////////////////////////////
 // Concantenated Output 
 //////////////////////////////////////////////////////////////////////////////////
 
 // to return the output by selecting one from the vmm output and the non-reordered rs of the given address
 always @(*) begin
     if(rs_concat_ren) begin
-        if(rou_flag_bits[rs_concat_addr])  rs_concat_data <= rs_vmuout_data;
+        if(rou_flag_bits[rs_concat_addr])  rs_concat_data <= vmm_buffer[rs_concat_addr];
         else                               rs_concat_data <= rou_buffer[rs_concat_addr];
     end
     else begin

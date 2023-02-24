@@ -12,7 +12,7 @@
 // Description: 
 // 
 // Dependencies: 
-// 
+// s
 // Revision:
 // Revision 0.01 - File Created
 // Additional Comments:
@@ -23,9 +23,7 @@
 
 module VMMUnit(
     // vmm output
-    output reg [`RS_ELEM_WIDTH-1:0] rs_output_data,
-    input wire [`XB_ADDR_WIDTH-1:0] rs_output_addr,
-    input rs_output_ren,
+    output reg [`XB_DBUS_WIDTH-1:0] xbar_out_data,
     // gate decoder input
     input wire [`QG_AMPL_WIDTH-1:0] qg_real_data,   
     input wire [`QG_AMPL_WIDTH-1:0] qg_imag_data,   
@@ -37,7 +35,7 @@ module VMMUnit(
     input wire [`XB_ADDR_WIDTH-1:0] xbar_rsv_addr,
     input wire xbar_row_wen, // enable to load the gate info. to the row buffer
     input wire xbar_rsv_wen, // enable to load the rsv to the rsv buffer
-    input wire xbar_vmm_men, // enable to perform the vmm
+    input wire xbar_vmm_en,  // start to multiply
     
     input wire clock,
     input wire nreset);
@@ -54,7 +52,6 @@ parameter COL_OFFSET_1 = `XB_ADDR_WIDTH'd1;
 reg [`RS_AMPL_WIDTH-1:0] xbar_row_real_buffer[0:`XB_ELEM_WIDTH-1];
 reg [`RS_AMPL_WIDTH-1:0] xbar_row_imag_buffer[0:`XB_ELEM_WIDTH-1];
 reg [`XB_ADDR_WIDTH-1:0] xbar_col_addr;
-reg xbar_row_wen_1d;
 
 // for loading the rsv 
 reg [`RS_AMPL_WIDTH-1:0] xbar_rsv_real_buffer[0:`XB_ELEM_WIDTH-1];
@@ -68,11 +65,6 @@ integer i;
 // We assume that the gate information can be loaded into the crossbar 
 // independently of rsv via the row buffer of the vmm unit.
 //////////////////////////////////////////////////////////////////////////////////
-
-// row buffer write enable with 1 cycle delay
-always @(posedge clock) begin
-    xbar_row_wen_1d <= xbar_row_wen;
-end
 
 // calculate the column index using the row index
 always @(*) begin
@@ -153,7 +145,13 @@ end
 //////////////////////////////////////////////////////////////////////////////////
 
 always @(*) begin
-    rs_output_data <= (xbar_row_real_buffer[rs_output_addr] << `RS_AMPL_WIDTH) | xbar_row_imag_buffer[rs_output_addr];
+    xbar_out_data = {`XB_DBUS_WIDTH{1'b0}};
+
+    for(i = 0; i < `XB_ELEM_WIDTH-1; i = i + 1) begin
+        xbar_out_data = xbar_out_data | (((xbar_row_real_buffer[i] << `RS_AMPL_WIDTH) | xbar_row_imag_buffer[i]) << `RS_ELEM_WIDTH);
+    end
+    
+    xbar_out_data = xbar_out_data | ((xbar_row_real_buffer[i] << `RS_AMPL_WIDTH) | xbar_row_imag_buffer[i]);
 end
 
 //////////////////////////////////////////////////////////////////////////////////

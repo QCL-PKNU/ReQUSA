@@ -55,6 +55,18 @@ always @(posedge clock or negedge nreset) begin
         lut_real[ 8] <= {`RS_AMPL_WIDTH'h81, `RS_AMPL_WIDTH'h82, `RS_AMPL_WIDTH'h83, `RS_AMPL_WIDTH'h84, 1'b0};  // CZ
         lut_real[ 9] <= {`RS_AMPL_WIDTH'h91, `RS_AMPL_WIDTH'h92, `RS_AMPL_WIDTH'h93, `RS_AMPL_WIDTH'h94, 1'b0};  // CCX
     end
+    else begin
+        lut_real[ 0] <= lut_real[ 0];  // H
+        lut_real[ 1] <= lut_real[ 1];  // I
+        lut_real[ 2] <= lut_real[ 2];  // X
+        lut_real[ 3] <= lut_real[ 3];  // Y
+        lut_real[ 4] <= lut_real[ 4];  // Z
+        lut_real[ 5] <= lut_real[ 5];  // T
+        lut_real[ 6] <= lut_real[ 6];  // Tdg
+        lut_real[ 7] <= lut_real[ 7];  // CX
+        lut_real[ 8] <= lut_real[ 8];  // CZ
+        lut_real[ 9] <= lut_real[ 9];  // CCX
+    end
 end
 
 always @(posedge clock or negedge nreset) begin
@@ -69,6 +81,18 @@ always @(posedge clock or negedge nreset) begin
         lut_imag[ 7] <= {`RS_AMPL_WIDTH'h75, `RS_AMPL_WIDTH'h76, `RS_AMPL_WIDTH'h77, `RS_AMPL_WIDTH'h78};  // CX
         lut_imag[ 8] <= {`RS_AMPL_WIDTH'h85, `RS_AMPL_WIDTH'h86, `RS_AMPL_WIDTH'h87, `RS_AMPL_WIDTH'h88};  // CZ
         lut_imag[ 9] <= {`RS_AMPL_WIDTH'h95, `RS_AMPL_WIDTH'h96, `RS_AMPL_WIDTH'h97, `RS_AMPL_WIDTH'h98};  // CCX
+    end
+    else begin
+        lut_imag[ 0] <= lut_imag[ 0];  // H
+        lut_imag[ 1] <= lut_imag[ 1];  // I
+        lut_imag[ 2] <= lut_imag[ 2];  // X
+        lut_imag[ 3] <= lut_imag[ 3];  // Y
+        lut_imag[ 4] <= lut_imag[ 4];  // Z
+        lut_imag[ 5] <= lut_imag[ 5];  // T
+        lut_imag[ 6] <= lut_imag[ 6];  // Tdg
+        lut_imag[ 7] <= lut_imag[ 7];  // CX
+        lut_imag[ 8] <= lut_imag[ 8];  // CZ
+        lut_imag[ 9] <= lut_imag[ 9];  // CCX
     end
 end
 

@@ -59,6 +59,7 @@ reg [`RS_ADDR_WIDTH-1:0] rs_index_1d;
 
 // to determine whether to hold reordering for the VMM unit
 reg [`RS_ADDR_WIDTH-1:0] rs_hold_count;
+reg rs_buffer_end;
 
 //////////////////////////////////////////////////////////////////////////////////
 // Reorder State Machine
@@ -86,7 +87,10 @@ always @(posedge clock or negedge nreset) begin
             end
             // to perform reordering of the realized states 
             STATE_REORDER_BUSY: begin
-                if(rs_hold_count == `XB_ELEM_WIDTH-1) begin
+                if(rs_buffer_end) begin
+                    state <= STATE_REORDER_IDLE;
+                end 
+                else if(rs_hold_count == `XB_ELEM_WIDTH-1) begin
                     // to change the state to stop reordering if the rsv buffer of the VMMUnit is full
                     state <= STATE_REORDER_HOLD;
                 end
@@ -96,16 +100,8 @@ always @(posedge clock or negedge nreset) begin
             end
             // to stop reordering while the VMM operation of the VMMUnit is performed
             STATE_REORDER_HOLD: begin       
-                if(rs_reorder_end) begin
-                    state <= STATE_REORDER_IDLE;
-                end 
-                else if(rs_hold_count == `XB_ELEM_WIDTH-1) begin
-                    // to change the state to resume reordering if the VMM operations complete.
-                    state <= STATE_REORDER_BUSY;
-                end
-                else begin
-                    state <= state;
-                end    
+                // to change the state to resume reordering if the VMM operations complete.
+                state <= STATE_REORDER_BUSY;
             end
             default: state <= state;
         endcase
@@ -120,7 +116,7 @@ wire b_state_hold = (state == STATE_REORDER_HOLD);
 // an enable signal to read one rs from the rsv buffer
 always @(posedge clock or negedge nreset) begin
     if(!nreset)             rs_buffer_ren <= 1'b0;
-    else if(b_state_busy)   rs_buffer_ren <= 1'b1;
+    else if(b_state_busy)   rs_buffer_ren <= 1'b1 & ~rs_buffer_end;
     else                    rs_buffer_ren <= 1'b0;
 end
 
@@ -158,6 +154,7 @@ end
 
 // to calculate the index of the rs to be reordered
 always @(*) begin
+    rs_index = 0;
     for (i = `RS_BUFF_SIZE-1; i >= 0; i = i - 1) begin
         if(rs_valid_bits[i] == 1'b0) begin
             rs_index = i;
@@ -214,6 +211,10 @@ always @(*) begin
     else begin
         rs_buffer_addr <= rs_index;
     end
+end
+
+always @(*) begin
+    rs_buffer_end <= (rs_buffer_addr == rs_buffer_size - `RS_ADDR_WIDTH'd1);
 end
 
 // to check whether the addressed rs has been already reordered

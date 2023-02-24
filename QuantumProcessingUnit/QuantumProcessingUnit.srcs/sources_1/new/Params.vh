@@ -37,6 +37,7 @@
 // vmm unit
 `define XB_GATE_COUNT   4   // the number of gates to be loaded on the crossbar
 `define XB_ELEM_WIDTH   8   // `XB_GATE_COUNT * 2;
-`define XB_ADDR_WIDTH   10  // address bit-width for the crossbar
+`define XB_ADDR_WIDTH   3  // address bit-width for the crossbar
+`define XB_DBUS_WIDTH   128 // `RS_ELEM_WIDTH * `XB_ELEM_WIDTH
 
 `endif
