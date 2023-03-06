@@ -23,11 +23,13 @@
 
 module ReorderUnit(
     // reordered rs output
-    output reg [`RS_ELEM_WIDTH-1:0] rs_reorder_data,
-    output reg [`RS_ADDR_WIDTH-1:0] rs_reorder_addr,
+    output reg [`RS_INFO_WIDTH-1:0] rs_reorder_data_0,
+    output reg [`RS_INFO_WIDTH-1:0] rs_reorder_data_1,
+    output reg rs_reorder_hold, // to let the vmm unit perform a vmm operation
     output reg rs_reorder_busy, // to indicate whether the reordered rs is outputting
     output reg rs_reorder_flag, // to indicate whether the rs was reordered (1) or not (0)
     output reg rs_reorder_end,  // to indicate that all the rs have been reordered
+    input wire rs_reorder_resume, 
     // rs buffer access
     input wire [`RS_ADDR_WIDTH-1:0] rs_buffer_size,
     input wire [`RS_INFO_WIDTH-1:0] rs_buffer_data, // rs output from the rs buffer 
@@ -47,19 +49,22 @@ parameter STATE_REORDER_IDLE = 2'd0;
 parameter STATE_REORDER_BUSY = STATE_REORDER_IDLE + 2'd1;
 parameter STATE_REORDER_HOLD = STATE_REORDER_BUSY + 2'd1;
 
-integer i; 
-   
-// valid bits of the rs buffer entries
-reg [`RS_BUFF_SIZE-1:0] rs_valid_bits;
-reg [`RS_ADDR_WIDTH-1:0] rs_valid_count;
-
-// the index of the first 0 occurrence
 reg [`RS_ADDR_WIDTH-1:0] rs_index; 
-reg [`RS_ADDR_WIDTH-1:0] rs_index_1d;
 
-// to determine whether to hold reordering for the VMM unit
-reg [`RS_ADDR_WIDTH-1:0] rs_hold_count;
+// to indicate the end of buffer reading
 reg rs_buffer_end;
+reg rs_buffer_end_1d;
+
+// to count the number of reordered rs
+reg [`XB_ADDR_WIDTH-1:0] rs_xbar_count;
+
+// rs control flag with 1 cycle delay
+reg b_controlled;
+reg b_controlled_1d;
+
+// pair state
+reg b_pair_state;
+reg b_pair_state_1d;
 
 //////////////////////////////////////////////////////////////////////////////////
 // Reorder State Machine
@@ -90,9 +95,15 @@ always @(posedge clock or negedge nreset) begin
                 if(rs_buffer_end) begin
                     state <= STATE_REORDER_IDLE;
                 end 
-                else if(rs_hold_count == `XB_ELEM_WIDTH-1) begin
-                    // to change the state to stop reordering if the rsv buffer of the VMMUnit is full
-                    state <= STATE_REORDER_HOLD;
+                else if(rs_xbar_count == `XB_GATE_COUNT) begin
+                    // to change the state to stop reordering for a single cycle 
+                    // if the rsv buffer of the VMMUnit is ready for the multiplication
+                    if(~b_pair_state) begin
+                        state <= STATE_REORDER_BUSY;
+                    end
+                    else begin
+                        state <= STATE_REORDER_HOLD;
+                    end 
                 end
                 else begin
                     state <= state;
@@ -100,8 +111,13 @@ always @(posedge clock or negedge nreset) begin
             end
             // to stop reordering while the VMM operation of the VMMUnit is performed
             STATE_REORDER_HOLD: begin       
-                // to change the state to resume reordering if the VMM operations complete.
-                state <= STATE_REORDER_BUSY;
+                if(rs_reorder_resume) begin
+                    // to change the state to resume reordering if the VMM operations complete.
+                    state <= STATE_REORDER_BUSY;
+                end
+                else begin
+                    state <= state;
+                end
             end
             default: state <= state;
         endcase
@@ -113,13 +129,6 @@ wire b_state_idle = (state == STATE_REORDER_IDLE);
 wire b_state_busy = (state == STATE_REORDER_BUSY);  
 wire b_state_hold = (state == STATE_REORDER_HOLD);
 
-// an enable signal to read one rs from the rsv buffer
-always @(posedge clock or negedge nreset) begin
-    if(!nreset)             rs_buffer_ren <= 1'b0;
-    else if(b_state_busy)   rs_buffer_ren <= 1'b1 & ~rs_buffer_end;
-    else                    rs_buffer_ren <= 1'b0;
-end
-
 //////////////////////////////////////////////////////////////////////////////////
 // Reordering Stop/Resume
 //
@@ -127,22 +136,27 @@ end
 // multiplication operations are performed on the VMMUnit.
 //////////////////////////////////////////////////////////////////////////////////
 
-// to determine whether to stop reordering for the VMMUnit
+// an enable signal to read one rs from the rsv buffer
+always @(*) begin
+    rs_buffer_ren <= b_state_busy;
+end
+
+always @(*) begin
+    rs_reorder_hold <= b_state_hold;
+end
+
 always @(posedge clock or negedge nreset) begin
     if(!nreset) begin
-        rs_hold_count <= `RS_ADDR_WIDTH'd0;
+        rs_xbar_count <= `XB_ADDR_WIDTH'd0;
     end
-    else if(b_state_busy || b_state_hold) begin
-        // to increase the hold count up to the row width of the crossbar
-        if(rs_hold_count == `XB_ELEM_WIDTH-1) begin
-            rs_hold_count <= `RS_ADDR_WIDTH'd0;
-        end 
-        else begin
-            rs_hold_count <= rs_hold_count + `RS_ADDR_WIDTH'd1;
-        end
+    else if(b_state_busy & (b_single_gate | b_controlled_1d) & ~b_pair_state) begin
+        rs_xbar_count <= rs_xbar_count + `XB_ADDR_WIDTH'd1;
+    end
+    else if(b_state_hold) begin
+        rs_xbar_count <= `XB_ADDR_WIDTH'd0;
     end
     else begin
-        rs_hold_count <= `RS_ADDR_WIDTH'd0;
+        rs_xbar_count <= rs_xbar_count;
     end
 end
 
@@ -152,97 +166,70 @@ end
 // We follow Algorithm 2 to reorder the realized states.
 //////////////////////////////////////////////////////////////////////////////////
 
-// to calculate the index of the rs to be reordered
-always @(*) begin
-    rs_index = 0;
-    for (i = `RS_BUFF_SIZE-1; i >= 0; i = i - 1) begin
-        if(rs_valid_bits[i] == 1'b0) begin
-            rs_index = i;
-        end
-    end
-end
-
-// rs index signal with 1 cycle delay
+// to indicate the rs is the selected state (0) or its pair state (1)
 always @(posedge clock) begin
-    rs_index_1d <= rs_index;
+    b_pair_state_1d <= b_pair_state;
 end
-
-// to calculate the rs index stride using a target qubit index
-wire [`RS_ADDR_WIDTH-1:0] rs_stride = 1 << qb_targ_addr;
-
-// to indicate the rs is the lower(1) or upper(0) state
-reg b_lower_state;
 
 always @(posedge clock or negedge nreset) begin
     if(!nreset) begin
-        b_lower_state <= 1'b1;
-    end 
-    else if(rs_buffer_ren) begin
-        b_lower_state <= ~b_lower_state;
+        b_pair_state <= 1'b0;
+    end
+    else if(b_state_busy) begin
+        b_pair_state <= ~b_pair_state;
     end
     else begin
-        b_lower_state <= b_lower_state;
+        b_pair_state <= 1'b0;
     end
 end
 
 // to indicate whether the rs is controlled(1) or not(0)
-wire b_controlled = ((rs_buffer_data >> `RS_ELEM_WIDTH) >> qb_ctrl_addr) & ~b_lower_state;
+always @(*) begin
+    b_controlled <= ((rs_buffer_data >> `RS_ELEM_WIDTH) >> qb_ctrl_addr) & b_pair_state;
+end
 
 // rs control flag with 1 cycle delay
-reg b_controlled_1d;
-
 always @(posedge clock) begin
     b_controlled_1d <= b_controlled;
 end
 
+// temporary rs index 
+always @(posedge clock or negedge nreset) begin
+    if(!nreset) begin
+        rs_index <= `RS_ADDR_WIDTH'd0;
+    end
+    else if(rs_buffer_end) begin
+        rs_index <= `RS_ADDR_WIDTH'd0;
+    end
+    else if(b_state_busy & b_pair_state) begin
+        rs_index <= rs_index + `RS_ADDR_WIDTH'd1;
+    end
+    else begin
+        rs_index <= rs_index;
+    end
+end
+
 // rs cam mode
 always @(*) begin
-    rs_buffer_cam <= (b_single_gate | b_controlled) & ~b_lower_state;
+    rs_buffer_cam <= (b_single_gate | b_controlled) & b_pair_state;
 end
 
 // rs buffer access 
 always @(*) begin
-    if(b_lower_state) begin
+    if(~b_pair_state) begin
         rs_buffer_addr <= rs_index;
     end
-    else if(b_single_gate || b_controlled) begin
-        rs_buffer_addr <= rs_index_1d + rs_stride;
-    end 
     else begin
-        rs_buffer_addr <= rs_index;
+        rs_buffer_addr <= (rs_buffer_data >> `RS_ELEM_WIDTH) ^ (`RS_ADDR_WIDTH'b1 << qb_targ_addr);
     end
 end
 
 always @(*) begin
-    rs_buffer_end <= (rs_buffer_addr == rs_buffer_size - `RS_ADDR_WIDTH'd1);
+    rs_buffer_end <= (rs_index == rs_buffer_size - `RS_ADDR_WIDTH'd1) & b_pair_state;
 end
 
-// to check whether the addressed rs has been already reordered
-always @(posedge clock or negedge nreset) begin
-    if(!nreset) begin
-        // reset all the valid bits 
-        rs_valid_bits <= {`RS_BUFF_SIZE{1'b0}};
-    end
-    else if(enable) begin
-        // reset all the valid bits 
-        rs_valid_bits <= {`RS_BUFF_SIZE{1'b0}};
-    end
-    else if(rs_buffer_ren) begin
-        // set the valid bit of the reordered rs
-        rs_valid_bits[rs_buffer_addr] <= 1'b1;
-    end
-    else begin
-        rs_valid_bits <= rs_valid_bits;
-    end
-end
-
-// to calculate the number of reordered rs 
-always @(*) begin
-    rs_valid_count = 0;
-
-    for (i = 0; i < `RS_BUFF_SIZE; i = i + 1) begin
-        rs_valid_count = rs_valid_count + rs_valid_bits[i]; 
-    end
+always @(posedge clock) begin
+    rs_buffer_end_1d <= rs_buffer_end;
 end
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -258,13 +245,13 @@ always @(posedge clock) begin
 end
 
 // to indicate the end of the reordering process 
-always @(*) begin
-    rs_reorder_end <= (rs_reorder_addr == rs_buffer_size-`RS_ADDR_WIDTH'd1);
+always @(posedge clock) begin
+    rs_reorder_end <= rs_buffer_end_1d;
 end
 
 // to indicate whether the reordered rs is outputting or not
 always @(posedge clock) begin
-    rs_reorder_busy <= rs_buffer_ren_1d;
+    rs_reorder_busy <= b_pair_state_1d;
 end
 
 // to indicate whether the rs is reordered(1) or not(0)
@@ -272,8 +259,13 @@ always @(posedge clock or negedge nreset) begin
     if(!nreset) begin
         rs_reorder_flag <= 1'b0;
     end 
-    else if(b_single_gate | b_controlled | b_controlled_1d) begin
-        rs_reorder_flag <= 1'b1;
+    else if(b_pair_state_1d) begin
+        if(b_single_gate | b_controlled_1d) begin
+            rs_reorder_flag <= 1'b1;
+        end
+        else begin
+            rs_reorder_flag <= 1'b0;
+        end
     end
     else begin
         rs_reorder_flag <= 1'b0;
@@ -283,29 +275,22 @@ end
 // rs reordered data
 always @(posedge clock or negedge nreset) begin
     if(!nreset) begin
-        rs_reorder_data <= {`RS_ELEM_WIDTH{1'b0}};
+        rs_reorder_data_0 <= {`RS_INFO_WIDTH{1'b0}};
+        rs_reorder_data_1 <= {`RS_INFO_WIDTH{1'b0}};
     end 
     else if(rs_buffer_ren_1d) begin
-        rs_reorder_data <= rs_buffer_data[`RS_ELEM_WIDTH-1:0];
+        if(~b_pair_state_1d) begin
+            rs_reorder_data_0 <= rs_buffer_data;
+            rs_reorder_data_1 <= rs_reorder_data_1;
+        end
+        else begin
+            rs_reorder_data_0 <= rs_reorder_data_0;
+            rs_reorder_data_1 <= rs_buffer_data;
+        end
     end
     else begin
-        rs_reorder_data <= {`RS_ELEM_WIDTH{1'b0}};
-    end
-end
-
-// rs reordered address
-always @(posedge clock or negedge nreset) begin
-    if(!nreset) begin
-        rs_reorder_addr <= {`RS_ADDR_WIDTH{1'b0}};
-    end
-    else if(rs_reorder_end) begin
-        rs_reorder_addr <= {`RS_ADDR_WIDTH{1'b0}};
-    end
-    else if(rs_reorder_busy) begin
-        rs_reorder_addr <= rs_reorder_addr + `RS_ADDR_WIDTH'd1;
-    end
-    else begin 
-        rs_reorder_addr <= rs_reorder_addr;
+        rs_reorder_data_0 <= {`RS_INFO_WIDTH{1'b0}};
+        rs_reorder_data_1 <= {`RS_INFO_WIDTH{1'b0}};
     end
 end
 

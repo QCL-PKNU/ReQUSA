@@ -5,7 +5,7 @@
 // 
 // Create Date: 2023/01/31 14:14:21
 // Design Name: 
-// Module Name: InBuffer
+// Module Name: RSVBuffer
 // Project Name: ReQUSA (Reram-based QUantum computer Simulation Accelerator)
 // Target Devices: 
 // Tool Versions: 
@@ -21,7 +21,7 @@
 
 `include "Params.vh"
 
-module InBuffer(
+module RSVBuffer(
     // rs output 
     output reg [`RS_ADDR_WIDTH-1:0] rs_buffer_size, // the number of valid rs
     output reg [`RS_INFO_WIDTH-1:0] rs_output_data,

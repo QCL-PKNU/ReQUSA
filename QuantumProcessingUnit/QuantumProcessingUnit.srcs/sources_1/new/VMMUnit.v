@@ -23,13 +23,15 @@
 
 module VMMUnit(
     // vmm output
-    output reg [`XB_DBUS_WIDTH-1:0] xbar_out_data,
+    output reg [`RS_INFO_WIDTH-1:0] xbar_out_data,
+    output reg xbar_out_done,
+    output reg xbar_out_en,
     // gate decoder input
     input wire [`QG_AMPL_WIDTH-1:0] qg_real_data,   
     input wire [`QG_AMPL_WIDTH-1:0] qg_imag_data,   
     // reordered rs input
-    input wire [`RS_AMPL_WIDTH-1:0] rs_real_data,
-    input wire [`RS_AMPL_WIDTH-1:0] rs_imag_data,
+    input wire [`RS_INFO_WIDTH-1:0] rs_data_info_0,
+    input wire [`RS_INFO_WIDTH-1:0] rs_data_info_1,
     // qpu control
     input wire [`XB_ADDR_WIDTH-1:0] xbar_row_addr,
     input wire [`XB_ADDR_WIDTH-1:0] xbar_rsv_addr,
@@ -48,16 +50,23 @@ parameter AMPL_WIDTH_3 = `RS_AMPL_WIDTH * 3;
 parameter COL_OFFSET_0 = `XB_ADDR_WIDTH'd0;
 parameter COL_OFFSET_1 = `XB_ADDR_WIDTH'd1;
 
+parameter STATE_VMM_IDLE = 1'd0;
+parameter STATE_VMM_BUSY = STATE_VMM_IDLE + 1'd1;
+
 // for loading the gate 
 reg [`RS_AMPL_WIDTH-1:0] xbar_row_real_buffer[0:`XB_ELEM_WIDTH-1];
 reg [`RS_AMPL_WIDTH-1:0] xbar_row_imag_buffer[0:`XB_ELEM_WIDTH-1];
 reg [`XB_ADDR_WIDTH-1:0] xbar_col_addr;
 
 // for loading the rsv 
+reg [`RS_ADDR_WIDTH-1:0] xbar_rsv_addr_buffer[0:`XB_ELEM_WIDTH-1];
 reg [`RS_AMPL_WIDTH-1:0] xbar_rsv_real_buffer[0:`XB_ELEM_WIDTH-1];
 reg [`RS_AMPL_WIDTH-1:0] xbar_rsv_imag_buffer[0:`XB_ELEM_WIDTH-1];
+reg [`XB_ADDR_WIDTH  :0] xbar_rsv_count;
+reg [`XB_ADDR_WIDTH  :0] xbar_rsv_size;
 
-integer i;
+// to output the vmm results
+reg [`XB_ADDR_WIDTH-1:0] xbar_out_addr;
 
 //////////////////////////////////////////////////////////////////////////////////
 // Quantum Gate Loading
@@ -72,6 +81,8 @@ always @(*) begin
 end
 
 // copy the gate amplitudes to the row buffers (real, imag) respectively
+integer i;
+
 always @(posedge clock or negedge nreset) begin
     if(!nreset) begin
         // clear the row buffer
@@ -88,7 +99,7 @@ always @(posedge clock or negedge nreset) begin
         end
 
         // second, copy the gate amplitudes to the row buffers
-        if(!(xbar_row_addr & 1'b1)) begin
+        if(~(xbar_row_addr & 1'b1)) begin
             // for odd row address
             xbar_row_real_buffer[xbar_col_addr + COL_OFFSET_0] = (qg_real_data >> AMPL_WIDTH_3) & {`RS_AMPL_WIDTH{1'b1}};
             xbar_row_real_buffer[xbar_col_addr + COL_OFFSET_1] = (qg_real_data >> AMPL_WIDTH_2) & {`RS_AMPL_WIDTH{1'b1}};
@@ -120,19 +131,35 @@ end
 // and used to perform the multiplication operations.
 //////////////////////////////////////////////////////////////////////////////////
 
+wire [`RS_ADDR_WIDTH-1:0] rs_data_addr_0 = (rs_data_info_0 >> `RS_ELEM_WIDTH);
+wire [`RS_AMPL_WIDTH-1:0] rs_real_data_0 = (rs_data_info_0 >> `RS_AMPL_WIDTH) & {`RS_AMPL_WIDTH{1'b1}};
+wire [`RS_AMPL_WIDTH-1:0] rs_imag_data_0 = (rs_data_info_0                  ) & {`RS_AMPL_WIDTH{1'b1}};
+
+wire [`RS_ADDR_WIDTH-1:0] rs_data_addr_1 = (rs_data_info_1 >> `RS_ELEM_WIDTH);
+wire [`RS_AMPL_WIDTH-1:0] rs_real_data_1 = (rs_data_info_1 >> `RS_AMPL_WIDTH) & {`RS_AMPL_WIDTH{1'b1}};
+wire [`RS_AMPL_WIDTH-1:0] rs_imag_data_1 = (rs_data_info_1                  ) & {`RS_AMPL_WIDTH{1'b1}};
+
 // copy the realized states to the rsv buffer
+wire [`XB_ADDR_WIDTH-1:0] xbar_rsv_addr_nx = xbar_rsv_addr + `XB_ADDR_WIDTH'd1;
+
 always @(posedge clock or negedge nreset) begin
     if(!nreset) begin
         // clear the rsv buffer
         for(i = 0; i < `XB_ELEM_WIDTH; i = i + 1) begin
+            xbar_rsv_addr_buffer[i] <= {`RS_ADDR_WIDTH{1'b0}};
             xbar_rsv_real_buffer[i] <= {`RS_AMPL_WIDTH{1'b0}};
             xbar_rsv_imag_buffer[i] <= {`RS_AMPL_WIDTH{1'b0}};
         end
     end
     else if(xbar_rsv_wen) begin
         // copy the given realized states to the rsv buffer
-        xbar_rsv_real_buffer[xbar_rsv_addr] <= rs_real_data;
-        xbar_rsv_imag_buffer[xbar_rsv_addr] <= rs_imag_data;
+        xbar_rsv_addr_buffer[xbar_rsv_addr   ] <= rs_data_addr_0;
+        xbar_rsv_real_buffer[xbar_rsv_addr   ] <= rs_real_data_0;
+        xbar_rsv_imag_buffer[xbar_rsv_addr   ] <= rs_imag_data_0;
+
+        xbar_rsv_addr_buffer[xbar_rsv_addr_nx] <= rs_data_addr_1;
+        xbar_rsv_real_buffer[xbar_rsv_addr_nx] <= rs_real_data_1;
+        xbar_rsv_imag_buffer[xbar_rsv_addr_nx] <= rs_imag_data_1;
     end
 end
 
@@ -141,17 +168,96 @@ end
 //
 // We assume that the VMM output of the crossbar is stored in the row buffer. 
 // The QPU must obtain the multiplication result from the row buffer of the VMMUnit 
-// and pass it to the OutBuffer.
+// and return it out of the qpu.
 //////////////////////////////////////////////////////////////////////////////////
 
-always @(*) begin
-    xbar_out_data = {`XB_DBUS_WIDTH{1'b0}};
+// the state of the vmm unit
+reg state;
 
-    for(i = 0; i < `XB_ELEM_WIDTH-1; i = i + 1) begin
-        xbar_out_data = xbar_out_data | (((xbar_row_real_buffer[i] << `RS_AMPL_WIDTH) | xbar_row_imag_buffer[i]) << `RS_ELEM_WIDTH);
+wire b_state_idle = (state == STATE_VMM_IDLE);
+wire b_state_busy = (state == STATE_VMM_BUSY);
+
+always @(posedge clock or negedge nreset) begin
+    if(!nreset) begin
+        state <= STATE_VMM_IDLE;
+    end 
+    else begin
+        case(state) 
+            STATE_VMM_IDLE: begin
+                if(xbar_vmm_en) state <= STATE_VMM_BUSY;
+                else              state <= state;
+            end
+            STATE_VMM_BUSY: begin
+                if(xbar_out_addr == xbar_rsv_size - `XB_ADDR_WIDTH'd1) begin
+                    state <= STATE_VMM_IDLE;
+                end
+                else begin
+                    state <= state;
+                end
+            end 
+        endcase
     end
-    
-    xbar_out_data = xbar_out_data | ((xbar_row_real_buffer[i] << `RS_AMPL_WIDTH) | xbar_row_imag_buffer[i]);
+end
+
+// to indicate whether all the vmm output are returned 
+always @(*) begin
+    xbar_out_done <= (xbar_out_addr == xbar_rsv_size - `XB_ADDR_WIDTH'd1) & b_state_busy;
+end
+
+// count the number of buffered realized states
+always @(posedge clock or negedge nreset) begin
+    if(!nreset) begin
+        xbar_rsv_count <= `XB_ADDR_WIDTH'd0;
+    end
+    else if(b_state_idle & xbar_vmm_en) begin
+        xbar_rsv_count <= `XB_ADDR_WIDTH'd0;
+    end
+    else if(xbar_rsv_wen) begin
+        xbar_rsv_count <= xbar_rsv_count + `XB_ADDR_WIDTH'd2;
+    end
+    else begin
+        xbar_rsv_count <= xbar_rsv_count;
+    end
+end
+
+always @(posedge clock or negedge nreset) begin
+    if(!nreset) begin
+        xbar_rsv_size <= `XB_ADDR_WIDTH'd0;
+    end
+    else if(b_state_idle & xbar_vmm_en) begin
+        xbar_rsv_size <= xbar_rsv_count;
+    end
+end
+
+// output address
+always @(posedge clock or negedge nreset) begin
+    if(!nreset) begin
+        xbar_out_addr <= `XB_ADDR_WIDTH'd0;
+    end
+    else if(b_state_busy) begin
+        xbar_out_addr <= xbar_out_addr + `XB_ADDR_WIDTH'd1;
+    end
+    else begin
+        xbar_out_addr <= `XB_ADDR_WIDTH'd0;
+    end
+end
+
+// output from the vmm unit
+wire [`RS_ADDR_WIDTH-1:0] rsv_addr = xbar_rsv_addr_buffer[xbar_out_addr];
+wire [`RS_AMPL_WIDTH-1:0] rsv_real = xbar_row_real_buffer[xbar_out_addr];
+wire [`RS_AMPL_WIDTH-1:0] rsv_imag = xbar_row_imag_buffer[xbar_out_addr];
+
+always @(*) begin
+    xbar_out_data <= {rsv_addr, rsv_real, rsv_imag};
+end
+
+always @(*) begin
+    if(rsv_real != {`RS_AMPL_WIDTH{1'b0}} || rsv_imag != {`RS_AMPL_WIDTH{1'b0}}) begin
+        xbar_out_en <= 1'b1 & b_state_busy;
+    end
+    else begin
+        xbar_out_en <= 1'b0;
+    end
 end
 
 //////////////////////////////////////////////////////////////////////////////////

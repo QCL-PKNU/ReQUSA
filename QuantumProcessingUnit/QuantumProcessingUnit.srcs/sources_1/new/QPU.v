@@ -23,8 +23,7 @@
 
 module QPU(
     // for qpu output
-    output wire [`RS_ELEM_WIDTH-1:0] rs_qpuout_data,
-    output  reg [`XB_ADDR_WIDTH-1:0] rs_qpuout_addr,
+    output  reg [`RS_INFO_WIDTH-1:0] rs_qpuout_data,
     output  reg rs_qpuout_en,  
     // for the gate decoder
     input  wire [`QG_INFO_WIDTH-1:0] qg_info_data,
@@ -44,6 +43,9 @@ module QPU(
 // internal wires 
 //////////////////////////////////////////////////////////////////////////////////
 
+// for qpuout
+reg rs_qpuout_done;
+
 // for gate decoder
 wire [`RS_ADDR_WIDTH-1:0] qb_ctrl_addr;
 wire [`RS_ADDR_WIDTH-1:0] qb_targ_addr;
@@ -52,8 +54,9 @@ wire [`QG_AMPL_WIDTH-1:0] qg_imag_data;
 wire b_single_gate;
 
 // for reorder unit
-wire [`RS_ELEM_WIDTH-1:0] rs_reorder_data;
-wire [`RS_ADDR_WIDTH-1:0] rs_reorder_addr;
+wire [`RS_INFO_WIDTH-1:0] rs_reorder_data_0;
+wire [`RS_INFO_WIDTH-1:0] rs_reorder_data_1;
+wire rs_reorder_hold;
 wire rs_reorder_busy;
 wire rs_reorder_flag;
 wire rs_reorder_end;
@@ -64,19 +67,20 @@ wire [`RS_ADDR_WIDTH-1:0] rs_buffer_addr;
 wire rs_buffer_ren;
 wire rs_buffer_cam;
 
+// for vmm unit
+wire [`RS_INFO_WIDTH-1:0] xbar_out_data;
+wire xbar_out_done;
+wire xbar_out_en;
+
+reg  [`XB_ADDR_WIDTH-1:0] xbar_row_addr;
+reg  xbar_row_wen;
+
 //////////////////////////////////////////////////////////////////////////////////
 // QPU Controller - gate information loading
 //////////////////////////////////////////////////////////////////////////////////
 
 parameter STATE_GAT_IDLE = 1'd0;                    // qpu idle
 parameter STATE_GAT_LOAD = STATE_GAT_IDLE + 1'd1;   // gate load
-
-// for qpuout
-reg rs_qpuout_done;
-
-// for xbar row buffer
-reg [`XB_ADDR_WIDTH-1:0] xbar_row_addr;
-reg xbar_row_wen;
 
 // gate idle/load
 reg gat_ctrl_state;     
@@ -141,19 +145,21 @@ end
 parameter STATE_RSV_IDLE = 2'd0;
 parameter STATE_RSV_LOAD = STATE_RSV_IDLE + 2'd1;   // rsv load
 parameter STATE_RSV_MULT = STATE_RSV_LOAD + 2'd1;   // rsv multiply
+parameter STATE_RSV_OUTP = STATE_RSV_MULT + 2'd1;   // rsv output
 
 // for xbar rsv buffer 
 reg [`XB_ADDR_WIDTH-1:0] xbar_rsv_addr;
-reg [`XB_ADDR_WIDTH-1:0] xbar_vmm_addr;
 reg xbar_vmm_en;
 
 // rsv idle/load/mult
 reg [1:0] rsv_ctrl_state;     
 
-// to check whether rsv is loaded
-wire b_rsv_loaded = (xbar_rsv_addr == `XB_ELEM_WIDTH-1) | rs_reorder_end; 
-// to check whether vmm is finished
-wire b_vmm_finish = (xbar_vmm_addr == `XB_ELEM_WIDTH-1);
+// reorder end with 1 cycle delay
+reg rs_reorder_end_1d;
+
+always @(posedge clock) begin
+    rs_reorder_end_1d <= rs_reorder_end;
+end
 
 // state machine for rsv loading and vmm
 always @(posedge clock or negedge nreset) begin
@@ -163,16 +169,25 @@ always @(posedge clock or negedge nreset) begin
     else begin
         case(rsv_ctrl_state)
             STATE_RSV_IDLE: begin
-                if(rs_reorder_busy)     rsv_ctrl_state <= STATE_RSV_LOAD;
-                else                    rsv_ctrl_state <= rsv_ctrl_state; 
+                if(rs_buffer_ren)           rsv_ctrl_state <= STATE_RSV_LOAD;
+                else                        rsv_ctrl_state <= rsv_ctrl_state; 
             end 
             STATE_RSV_LOAD: begin
-                if(b_rsv_loaded)        rsv_ctrl_state <= STATE_RSV_MULT;
-                else                    rsv_ctrl_state <= rsv_ctrl_state;
+                if(rs_reorder_end | rs_reorder_hold) begin
+                    rsv_ctrl_state <= STATE_RSV_MULT;
+                end
+                else begin
+                    rsv_ctrl_state <= rsv_ctrl_state;
+                end
             end
             STATE_RSV_MULT: begin
-                if(rs_buffer_ren)       rsv_ctrl_state <= STATE_RSV_LOAD;
-                else                    rsv_ctrl_state <= STATE_RSV_IDLE;
+                if(rs_reorder_end_1d)       rsv_ctrl_state <= STATE_RSV_IDLE;
+                else                        rsv_ctrl_state <= STATE_RSV_OUTP;
+            end
+            STATE_RSV_OUTP: begin
+                if(rs_reorder_end_1d)       rsv_ctrl_state <= STATE_RSV_IDLE;
+                else if(xbar_out_done)      rsv_ctrl_state <= STATE_RSV_LOAD;
+                else                        rsv_ctrl_state <= rsv_ctrl_state;
             end
         endcase
     end
@@ -183,8 +198,8 @@ always @(posedge clock or negedge nreset) begin
     if(!nreset) begin
         xbar_rsv_addr <= `XB_ADDR_WIDTH'd0;
     end
-    else if(rs_reorder_busy & ~b_rsv_loaded) begin
-        xbar_rsv_addr <= xbar_rsv_addr + `XB_ADDR_WIDTH'd1;
+    else if(rs_reorder_busy & rs_reorder_flag) begin
+        xbar_rsv_addr <= xbar_rsv_addr + `XB_ADDR_WIDTH'd2;
     end
     else begin
         xbar_rsv_addr <= `XB_ADDR_WIDTH'd0;
@@ -192,9 +207,14 @@ always @(posedge clock or negedge nreset) begin
 end
 
 // to enable the vector-matrix multiplication using the crossbar
+reg xbar_vmm_en_p1;
+
 always @(*) begin
-    if(rsv_ctrl_state == STATE_RSV_MULT)    xbar_vmm_en <= 1'b1;
-    else                                    xbar_vmm_en <= 1'b0;
+    xbar_vmm_en_p1 <= (rsv_ctrl_state == STATE_RSV_MULT);
+end
+
+always @(posedge clock) begin
+    xbar_vmm_en <= xbar_vmm_en_p1;
 end
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -202,11 +222,7 @@ end
 //////////////////////////////////////////////////////////////////////////////////
 
 parameter STATE_OUT_IDLE = 1'd0;
-parameter STATE_OUT_CONC = STATE_OUT_IDLE + 1'd1;   // output concatenation
-
-// for the qpu simulation output 
-wire [`XB_DBUS_WIDTH-1:0] xbar_out_data;
-reg  xbar_out_en;
+parameter STATE_OUT_VMMR = STATE_OUT_IDLE + 1'd1;   // output 
 
 // output idle/concat
 reg out_ctrl_state;     
@@ -219,10 +235,10 @@ always @(posedge clock or negedge nreset) begin
     else begin
         case(out_ctrl_state)
             STATE_OUT_IDLE: begin
-                if(xbar_vmm_en)      out_ctrl_state <= STATE_OUT_CONC;
+                if(xbar_vmm_en)      out_ctrl_state <= STATE_OUT_VMMR;
                 else                 out_ctrl_state <= out_ctrl_state; 
             end 
-            STATE_OUT_CONC: begin
+            STATE_OUT_VMMR: begin
                 if(rs_qpuout_done)   out_ctrl_state <= STATE_OUT_IDLE;
                 else                 out_ctrl_state <= out_ctrl_state;
             end
@@ -230,40 +246,55 @@ always @(posedge clock or negedge nreset) begin
     end
 end
 
-// to enable the concatenation
-always @(posedge clock) begin
-    xbar_out_en <= (xbar_vmm_en);
-end
-
-// qpu output address
-always @(posedge clock or negedge nreset) begin
-    if(!nreset) begin
-        rs_qpuout_addr <= {`XB_ADDR_WIDTH{1'b0}};
-    end
-    else if(rs_qpuout_done) begin
-        rs_qpuout_addr <= {`XB_ADDR_WIDTH{1'b0}};
-    end
-    else if(out_ctrl_state == STATE_OUT_CONC) begin
-        rs_qpuout_addr <= rs_qpuout_addr + `XB_ADDR_WIDTH'b1;
-    end
-    else begin
-        rs_qpuout_addr <= rs_qpuout_addr;
-    end
-end
-
 // qpu output eanble
 always @(*) begin
-    rs_qpuout_en <= (out_ctrl_state == STATE_OUT_CONC);
+    if(rs_reorder_busy & ~rs_reorder_flag) begin
+        // non-reordered output
+        rs_qpuout_en <= 1'b1;
+    end
+    else if(out_ctrl_state == STATE_OUT_VMMR) begin
+        // reordered & vmm output
+        rs_qpuout_en <= xbar_out_en;
+    end
+    else begin
+        rs_qpuout_en <= 1'b0;
+    end
 end
 
-// to notify the end of the qpu operation
 always @(*) begin
-    rs_qpuout_done <= (rs_qpuout_addr == `XB_ELEM_WIDTH-1);
+    if(rs_reorder_busy & ~rs_reorder_flag) begin
+        // non-reordered output
+        rs_qpuout_data <= rs_reorder_data_0;
+    end
+    else if(xbar_out_en) begin
+        // reordered & vmm output
+        rs_qpuout_data <= xbar_out_data;
+    end
+    else begin
+        rs_qpuout_data <= {`RS_INFO_WIDTH{1'b0}};
+    end
 end
 
 //////////////////////////////////////////////////////////////////////////////////
 // internal modules 
 //////////////////////////////////////////////////////////////////////////////////
+
+// rsv buffer
+RSVBuffer rsv_buffer(
+    // for the reorder buffer 
+    .rs_buffer_size(rs_buffer_size),
+    .rs_output_data(rs_buffer_data),
+    .rs_output_addr(rs_buffer_addr),  
+    .rs_output_cam(rs_buffer_cam),  
+    .rs_output_ren(rs_buffer_ren),  
+    .rs_buffer_clr(rs_qpuin_clr), 
+    // qpu input 
+    .rs_input_data(rs_qpuin_data),
+    .rs_input_addr(rs_qpuin_addr),
+    .rs_input_wen(rs_qpuin_en), 
+
+    .clock(clock),
+    .nreset(nreset));    
 
 // gate decoder
 GateDecoder gate_decoder(
@@ -283,11 +314,13 @@ GateDecoder gate_decoder(
 // reorder unit
 ReorderUnit reorder_unit(
     // for the vmm unit and output buffer
-    .rs_reorder_data(rs_reorder_data),
-    .rs_reorder_addr(rs_reorder_addr),
+    .rs_reorder_data_0(rs_reorder_data_0),
+    .rs_reorder_data_1(rs_reorder_data_1),
+    .rs_reorder_hold(rs_reorder_hold),
     .rs_reorder_busy(rs_reorder_busy),
     .rs_reorder_flag(rs_reorder_flag),
     .rs_reorder_end(rs_reorder_end),
+    .rs_reorder_resume(xbar_out_done),
     // for the rs buffer
     .rs_buffer_size(rs_buffer_size),
     .rs_buffer_data(rs_buffer_data),
@@ -303,30 +336,12 @@ ReorderUnit reorder_unit(
     .clock(clock),
     .nreset(nreset));
 
-// rsv buffer
-InBuffer in_buffer(
-    // for the reorder buffer 
-    .rs_buffer_size(rs_buffer_size),
-    .rs_output_data(rs_buffer_data),
-    .rs_output_addr(rs_buffer_addr),  
-    .rs_output_cam(rs_buffer_cam),  
-    .rs_output_ren(rs_buffer_ren),  
-    .rs_buffer_clr(rs_qpuin_clr), 
-    // qpu input 
-    .rs_input_data(rs_qpuin_data),
-    .rs_input_addr(rs_qpuin_addr),
-    .rs_input_wen(rs_qpuin_en), 
-
-    .clock(clock),
-    .nreset(nreset));    
-
 // vmm unit
-wire [`RS_AMPL_WIDTH-1:0] rs_real_data = (rs_reorder_data >> `RS_AMPL_WIDTH) & {`RS_AMPL_WIDTH{1'b1}};
-wire [`RS_AMPL_WIDTH-1:0] rs_imag_data = (rs_reorder_data                  ) & {`RS_AMPL_WIDTH{1'b1}};
-
 VMMUnit vmm_unit(
     // vmm output
     .xbar_out_data(xbar_out_data), 
+    .xbar_out_done(xbar_out_done),
+    .xbar_out_en(xbar_out_en),
     // gate decoder input
     .qg_real_data(qg_real_data),   
     .qg_imag_data(qg_imag_data),   
@@ -334,30 +349,12 @@ VMMUnit vmm_unit(
     .xbar_row_addr(xbar_row_addr),
     .xbar_rsv_addr(xbar_rsv_addr),
     .xbar_row_wen(xbar_row_wen),
-    .xbar_rsv_wen(rs_reorder_busy),
+    .xbar_rsv_wen(rs_reorder_busy & rs_reorder_flag),
     .xbar_vmm_en(xbar_vmm_en),
     // reordered rs input
-    .rs_real_data(rs_real_data),   
-    .rs_imag_data(rs_imag_data),   
+    .rs_data_info_0(rs_reorder_data_0),   
+    .rs_data_info_1(rs_reorder_data_1),   
     
-    .clock(clock),
-    .nreset(nreset));
-
-// output buffer
-OutBuffer out_buffer(
-    // qpu output
-    .rs_concat_data(rs_qpuout_data),
-    .rs_concat_addr(rs_qpuout_addr),
-    .rs_concat_ren(rs_qpuout_en),
-    // for the vmm unit 
-    .rs_vmuout_data(xbar_out_data),
-    .rs_vmuout_wen(xbar_out_en),
-    // for the reorder units
-    .rs_rouout_data(rs_reorder_data),
-    .rs_rouout_addr(xbar_rsv_addr),
-    .rs_reorder_flag(rs_reorder_flag),
-    .rs_rouout_wen(rs_reorder_busy),
-
     .clock(clock),
     .nreset(nreset));
 
